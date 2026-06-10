@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Ambienti virtuali
+venv/
+.venv/
+
+# Dati locali (non si caricano mai file pesanti su GitHub)
+data/*.csv
+data/*.xlsx
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
