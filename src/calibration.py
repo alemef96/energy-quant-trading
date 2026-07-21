@@ -58,12 +58,14 @@ def filter_spikes(df, threshold_sigma=3.0):
     df['Is_Jump'] = np.abs(df['Return'] - df['Rolling_Mean']) > (threshold_sigma * df['Rolling_Std'])
     df['Is_Jump'] = df['Is_Jump'].fillna(False)
     
-    # Clean the price series by substituting spikes with previous day's value
-    df['Clean_Price'] = df['Price']
-    for i in range(1, len(df)):
-        if df['Is_Jump'].iloc[i]:
-            df['Clean_Price'].iloc[i] = df['Clean_Price'].iloc[i-1]
-            
+# Clean the price series by substituting spikes with the last valid non-spike price (Vectorized approach)
+    df['Clean_Price'] = np.where(df['Is_Jump'], np.nan, df['Price'])
+    df['Clean_Price'] = df['Clean_Price'].ffill()
+    
+    # Edge case handler: if the very first day is a jump, ffill() leaves a NaN. 
+    # We fill it back with the original price.
+    df['Clean_Price'] = df['Clean_Price'].fillna(df['Price'])
+    
     return df
 
 

@@ -9,6 +9,18 @@ Unlike equity or FX markets, electricity cannot be economically stored at a larg
 * **OLS Calibration**: Linearization of the underlying Ornstein-Uhlenbeck process via Euler-Maruyama discretization to estimate speed of mean reversion ($\kappa$), long-term mean ($\theta$), and volatility ($\sigma$).
 * **Asian Options Pricing**: A Monte Carlo simulation engine designed for path-dependent power derivatives settled on arithmetic price averages.
 
+## Quantitative Risk Analysis & Visual Insights
+
+By executing the Monte Carlo engine over 50,000 independent simulated paths under the calibrated MRJD framework, we map the asymmetric risk profile of the power portfolio:
+
+![Power Portfolio Risk Profile](data/risk_profile.png)
+
+### Key Metrics & Strategic Interpretation
+* **Expected Price Baseline**: The equilibrium pricing remains anchored near the marginal fuel cost baseline ($\theta = 60.00$ €/MWh) due to the aggressive speed of mean reversion ($\kappa = 0.3$).
+* **95% Value at Risk (VaR)**: Indicates a 95% probability that the delivery price will not exceed the quantified threshold. However, VaR fails to capture the structural severity of power price spikes.
+* **95% Expected Shortfall (CVaR)**: Highlights the conditional tail expectation. In the 5% worst-case scenarios (the red tail region in the histogram), the average price exposure escalates dramatically. This proves that for highly skewed energy distributions, CVaR is the only reliable capital allocation metric for risk desks.
+
+
 ## Repository Structure
 ```text
 energy-quant-trading/
