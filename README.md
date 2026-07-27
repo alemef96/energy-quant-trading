@@ -23,6 +23,8 @@ jumps with an endogenous, weather-driven merit-order mechanism to value physical
 - **Monte Carlo engine** — a vectorised simulator running tens of thousands of independent paths.
 - **Asian option pricing** — path-dependent power derivatives settled on the arithmetic price average.
 - **Tail-risk analysis** — 95% Value at Risk (VaR) and 95% Expected Shortfall (CVaR).
+- **Forward curve construction** — a no-arbitrage cascade from quoted months, quarters, and the
+  calendar year down to a monthly curve, with seasonality and a peak / off-peak split.
 - **Structural weather-to-price model** — power prices emerge from the merit order as weather drives
   residual load; spikes are endogenous, not assumed.
 - **Switching real-option valuation** — a CCGT is valued as a two-state (ON/OFF) switching option
@@ -64,6 +66,29 @@ of the power portfolio:
 
 ---
 
+## Forward curve construction
+
+A power desk trades forwards, not the spot. Quoted products (front months, quarters, the calendar
+year) must be mutually consistent by no-arbitrage: the time-weighted average of the finer contracts
+inside a period equals the price of the coarser contract covering it.
+
+$$\text{Cal-26} = \operatorname{avg}(Q_1,Q_2,Q_3,Q_4), \qquad Q_1 = \operatorname{avg}(\text{Jan},\text{Feb},\text{Mar})$$
+
+`forward_curve.py` cascades the quotes down to a full monthly curve: directly quoted months are used
+as-is, an unquoted month inside a quoted quarter is backed out by no-arbitrage, and a quarter with no
+quoted months is shaped into months by a seasonal profile constrained to average back to the quarter
+quote. The standalone Cal quote is then used as an independent consistency check — the residual
+between the quoted Cal and the strip-implied Cal is the calendar basis. Each monthly baseload price is
+finally split into peak and off-peak legs that hour-weight back to the baseload.
+
+This term structure is what the spot model should be anchored to: the flat long-term mean $\theta$
+becomes a time-varying $\theta(t) = \text{forward}(t)$, so an option or a plant is valued against the
+correct delivery-period level rather than a single global average.
+
+![Forward curve](data/forward_curve.png)
+
+---
+
 ## Weather-driven structural pricing and plant valuation
 
 Rather than assuming an exogenous jump process, `plant_valuation.py` builds power prices from the
@@ -102,11 +127,13 @@ energy-quant-trading/
 ├── .gitignore
 ├── data/
 │   ├── calibration_results.png   # MRJD fit & spike cleansing
+│   ├── forward_curve.png         # no-arbitrage forward curve (seasonality, peak/off-peak)
 │   ├── risk_profile.png          # VaR / CVaR distribution
 │   └── weather_dispatch.png      # weather -> price -> dispatch (structural model)
 └── src/
     ├── calibration.py            # MRJD data, spike cleansing, OLS / Euler–Maruyama calibration
     ├── pricing.py                # Monte Carlo engine + Asian options
+    ├── forward_curve.py          # no-arbitrage cascade: months/quarters/cal -> monthly curve
     ├── risk_analysis.py          # VaR / CVaR tail metrics
     ├── plant_valuation.py        # weather-driven merit order + switching LSM valuation
     └── main.py                   # single entry point: runs everything, regenerates all charts
@@ -141,6 +168,7 @@ Each module can also be run on its own:
 
 ```bash
 python src/calibration.py       # estimate κ, θ, σ and jump parameters
+python src/forward_curve.py     # build the no-arbitrage forward curve
 python src/risk_analysis.py     # Monte Carlo + VaR / CVaR
 python src/plant_valuation.py   # weather-driven pricing + switching valuation
 ```

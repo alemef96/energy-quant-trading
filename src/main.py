@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 from calibration import generate_synthetic_power_data, filter_spikes, calibrate_mrjd
 from risk_analysis import run_portfolio_risk_analysis
+import forward_curve
 import plant_valuation
 
 
@@ -53,13 +54,16 @@ def make_calibration_chart():
 def main():
     os.makedirs("data", exist_ok=True)
 
-    print("\n[1/3] MRJD calibration ...")
+    print("\n[1/4] MRJD calibration ...")
     make_calibration_chart()
 
-    print("\n[2/3] Portfolio tail risk (VaR / CVaR) ...")
+    print("\n[2/4] Forward curve construction ...")
+    forward_curve.main()
+
+    print("\n[3/4] Portfolio tail risk (VaR / CVaR) ...")
     run_portfolio_risk_analysis()
 
-    print("\n[3/3] Weather-driven plant valuation ...")
+    print("\n[4/4] Weather-driven plant valuation ...")
     plant_valuation.main()
 
     print("\n[DONE] All charts regenerated in data/.")

@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 
-def generate_synthetic_power_data(days=365, seed=42):
+def generate_synthetic_power_data(days=365, seed=None):
+    ...
+    if seed is not None:
+        np.random.seed(seed)
     """
     Simulates a historical Spot Power price series exhibiting Mean Reversion,
     Standard Diffusion, and Poisson Jumps (MRJD).
