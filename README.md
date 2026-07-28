@@ -191,7 +191,3 @@ python src/plant_valuation.py   # weather-driven pricing + switching valuation
 - Stochastic, correlated fuel and carbon prices (a cold snap raises gas cost as well as power demand).
 - Multi-state plant constraints: minimum-load, ramp rates, and minimum up/down times (swing-option form).
 - Conditioning scarcity/jump frequency on climate projections to stress-test asset fair value.
-
-## License
-
-Released under the MIT License.

@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 
 
-def price_asian_call_mrjd(S0, kappa, theta, sigma, lam, jump_mu, jump_sigma, K, T, r, paths=20000):
+def price_asian_call_mrjd(S0, kappa, theta, sigma, lam, jump_mu, jump_sigma, K, T, r,
+                          paths=20000, compensate_jumps=False):
     """
     Prices an Asian Call Option using a vectorized Monte Carlo simulation
     under the Mean-Reverting Jump-Diffusion (MRJD) framework.
@@ -10,7 +11,9 @@ def price_asian_call_mrjd(S0, kappa, theta, sigma, lam, jump_mu, jump_sigma, K, 
     Parameters:
     - S0: Initial spot price
     - kappa: Speed of mean reversion
-    - theta: Long-term mean price
+    - theta: Long-term mean level. EITHER a scalar (flat long-term mean) OR an
+             array of length T (a time-varying target theta(t) — e.g. the forward
+             curve, so the model is anchored to quoted market levels).
     - sigma: Diffusion volatility
     - lam: Jump intensity (Poisson process lambda)
     - jump_mu: Mean of the jump magnitude
@@ -19,8 +22,25 @@ def price_asian_call_mrjd(S0, kappa, theta, sigma, lam, jump_mu, jump_sigma, K, 
     - T: Days to maturity/delivery period
     - r: Annual risk-free interest rate
     - paths: Number of simulated Monte Carlo trajectories
+    - compensate_jumps: if True, subtract the expected jump contribution
+             (lambda * jump_mu) from the drift, so that the simulated mean
+             reverts to theta itself rather than overshooting it. This is what
+             lets the simulation reprice the forward curve instead of drifting
+             systematically above it.
+
+    Returns (option_price, S) where S has shape (T+1, paths).
     """
     dt = 1.0  # Daily time step
+
+    # Accept a scalar or a full theta(t) path; broadcast to length T
+    theta_path = np.asarray(theta, dtype=float)
+    if theta_path.ndim == 0:
+        theta_path = np.full(T, float(theta))
+    elif len(theta_path) != T:
+        raise ValueError(f"theta must be scalar or length T={T}, got {len(theta_path)}")
+
+    # Expected jump contribution per day; removing it makes E[S] revert to theta
+    jump_drift = lam * jump_mu if compensate_jumps else 0.0
 
     # Grid initialization: rows = days (time steps), columns = independent simulation paths
     S = np.zeros((T + 1, paths))
@@ -37,8 +57,11 @@ def price_asian_call_mrjd(S0, kappa, theta, sigma, lam, jump_mu, jump_sigma, K, 
         # Calculate jump sizes (only applied if a jump occurs, i.e., dq > 0)
         jumps = np.random.normal(jump_mu, jump_sigma, paths) * (dq > 0)
 
-        # Euler-Maruyama discretization step
-        dS = kappa * (theta - S[t-1, :]) * dt + sigma * S[t-1, :] * dW + jumps
+        # Euler-Maruyama discretization step, targeting theta(t) on this day
+        theta_t = theta_path[t - 1]
+        dS = (kappa * (theta_t - S[t-1, :]) * dt
+              + sigma * S[t-1, :] * dW
+              + jumps - jump_drift * dt)
 
         # Bound prices to prevent non-physical negative drops
         S[t, :] = np.maximum(5.0, S[t-1, :] + dS)

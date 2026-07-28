@@ -2,29 +2,37 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from pricing import price_asian_call_mrjd
+from forward_curve import build_baseload_curve, add_peak_offpeak, theta_for_month
 
-def run_portfolio_risk_analysis():
+def run_portfolio_risk_analysis(delivery_month=1):
     print("================ PORTFOLIO RISK & TAIL ANALYSIS ================")
 
-    # 1. Define calibrated market parameters (from our calibration engine)
-    S0 = 60.0
+    # 1. Anchor the model to the traded forward curve rather than a flat guess.
+    #    theta is the forward level for the delivery month being analysed.
+    curve = add_peak_offpeak(build_baseload_curve())
+    theta = theta_for_month(curve, delivery_month)
+    S0 = theta                     # start at the forward level for that delivery period
     kappa = 0.3
-    theta = 60.0
     sigma = 0.15
     lam = 0.0274       # Jump frequency
     jump_mu = 80.0     # Asymmetric spike magnitude mean
     jump_sigma = 20.0  # Spike volatility
 
     delivery_days = 30
-    strike = 65.0
+    strike = round(theta * 1.08)   # ~8% out-of-the-money cap, relative to the forward
     risk_free_rate = 0.05
     sim_paths = 50000
 
-    # 2. Run the Monte Carlo simulation engine
+    month_name = curve["Month"].iloc[delivery_month - 1]
+    print(f"Delivery period: {month_name}  |  forward (theta) = {theta:.2f} \u20ac/MWh  |  strike = {strike} \u20ac/MWh")
+
+    # 2. Run the Monte Carlo simulation engine, compensating the jump drift so the
+    #    simulated mean reproduces the forward level (no systematic mispricing).
     print(f"Generating {sim_paths} simulated price paths via MRJD...")
     option_price, S_matrix = price_asian_call_mrjd(
         S0, kappa, theta, sigma, lam, jump_mu, jump_sigma,
-        strike, delivery_days, risk_free_rate, paths=sim_paths
+        strike, delivery_days, risk_free_rate, paths=sim_paths,
+        compensate_jumps=True
     )
 
     # 3. Extract path averages (the basis for electricity contract settlement)
@@ -49,7 +57,7 @@ def run_portfolio_risk_analysis():
     plt.subplot(1, 2, 1)
     sample_paths = 30
     plt.plot(S_matrix[:, :sample_paths], alpha=0.6, linewidth=1.5)
-    plt.axhline(y=theta, color='black', linestyle='--', label=f'Long-term Mean (Theta = {theta})')
+    plt.axhline(y=theta, color="black", linestyle="--", label=f"Forward level \u03b8 = {theta:.1f}")
     plt.title("MRJD Monte Carlo Price Paths (Sample)")
     plt.xlabel("Delivery Timeline (Days)")
     plt.ylabel("Electricity Spot Price (€/MWh)")
@@ -71,7 +79,7 @@ def run_portfolio_risk_analysis():
             patch.set_facecolor('crimson')
             patch.set_alpha(0.7)
 
-    plt.title("Distribution of Monthly Price Averages (Asian Settlement)")
+    plt.title(f"Distribution of Monthly Price Averages ({month_name} delivery)")
     plt.xlabel("Arithmetic Average Price (€/MWh)")
     plt.ylabel("Probability Density")
     plt.grid(True, alpha=0.3)
